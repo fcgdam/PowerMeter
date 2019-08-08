@@ -1,6 +1,6 @@
 # PZEM004T ESP8266 Power Meter
 
-Contains the firmware for the ESP8266 with the PZEM-004T based power meter.
+Contains the firmware for the ESP8266 with the PZEM-004T based power meter as described in https://primalcortex.wordpress.com/2019/07/06/measuring-home-energy-consumption-with-the-pzem004t-and-esp8266/ and https://primalcortex.wordpress.com/2019/07/25/pzem-004t-esp8266-software/ 
 
 This firmware provides the following functionality:
 
