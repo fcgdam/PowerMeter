@@ -6,3 +6,13 @@ The PowerMeter is designed to use Wemos D1 ESP8266 boards.
 
 The PZEM004T-Test repository contains a simple program for testing the ESP8266 to PZEM004 communications and the retrieving of data from the PZEM004T.
 
+# Screenshots:
+
+Some screenshots of the PowerMeter working:
+
+*ESP8266 based Power Meter Web Interface:*
+![](/images/web_page.png?raw=true)
+
+*The Node-Red UI:*
+![](/images/node_red.png?raw=true)
+
