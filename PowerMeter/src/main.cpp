@@ -4,7 +4,6 @@
 #include <ArduinoOTA.h>         // For OTA firmware update support
 #include <ESP8266mDNS.h>
 #include <Wire.h>
-//#include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 #include <PZEM004T.h>
 #include <SimpleTimer.h>
@@ -14,7 +13,7 @@
 #include <AppData.hpp>
 #include "secrets.h"
 
-#define  FW_Version "1.0.0"
+#define  FW_Version "1.0.1"
 
 // PZEM004T Configuration.
 // Change the pins if using something other than the Wemos D1 mini and D5/D6 for UART communication.
@@ -36,9 +35,6 @@ int             MONITOR_LED   = 2;                // Monitoring led to send some
 //unsigned long   tick;                             // Used for blinking the MONITOR_LED: ON -> OTA , Blink FAST: Connecting, Blink SLOW: Working
 unsigned long   ledBlink = 200;                   // Led blink interval: Fast - Connecting to PZEM, slow - Connected
 int             monitor_led_state = LOW;  
-
-// Display onto a 16x2 LCD
-//LiquidCrystal_I2C lcd( 0x27, 16, 2);  
 
 WiFiClient      WIFIClient;
 IPAddress       thisDevice;
@@ -201,9 +197,6 @@ void OTA_Setup() {
 
 void display_WIFIInfo() {
     Log.I("Connected to WIFI: " + WiFi.SSID() );
-    //Log.I(  );
-    /*Serial.print("MAC: ");
-    Serial.println(MAC_char);*/
 
     thisDevice = WiFi.localIP();
     Log.I(" IP: " + thisDevice.toString() );
@@ -291,6 +284,19 @@ void check_Connectivity() {
 }
 
 /*
+ * back_tasks:  Executes the background tasks
+ * 
+ * Calls the functions necessary to keep everything running smoothly while waiting or looping
+ * Such tasks include mantaining the MQTT connection, checking OTA status and updating the timers.
+ * 
+ */
+
+void back_tasks() {
+    MQTT_client.loop();           // Handle MQTT
+    timer.run();                  // Handle SimpleTimer
+}
+
+/*
  * PWRMeter_Connect:
  * 
  * Tries to connect to the PowerMeter
@@ -343,7 +349,11 @@ void PWRMeter_getData() {
     do {
       v = pzem.voltage(ip);
       tries++;
+      
+      // Execute the back ground tasks otherwise we may loose conectivity to the MQTT broker.
+      back_tasks();
       delay(250);
+      
     } while ( (v == -1) && ( tries < 10) );
 
     if ( tries == 10 ) Log.E("Failed to get PowerMeter data after 10 tries!");
@@ -359,9 +369,9 @@ void PWRMeter_getData() {
 
     // Build the MQTT message:
     String s = "{\"V\":" + String(v) + \
-                      ",\"I\":" + String(i) + \
-                      ",\"P\":" + String(p) + \
-                      ",\"E\":" + String(e) + "}";
+               ",\"I\":" + String(i) + \
+               ",\"P\":" + String(p) + \
+               ",\"E\":" + String(e) + "}";
 
     Log.I("-> Power Meter data: ");
     Log.I( s );
@@ -384,29 +394,33 @@ void PWRMeter_getData() {
         pzemDataNOK++;
     }
 
-    mState = 2;   // Move backe to the Read data state to trigger another (future) read.
+    mState = 2;   // Move back to the Read data state to trigger another (future) read.
 }
 
+// Moves the state machine to the next state.
 void PWRMeter_ReadState() {
-  mState = 2;
+    mState = 2;
 }
 
+// Just blink the onboard led according to the defined period
 void Blink_MonitorLed() {
-  digitalWrite( MONITOR_LED , monitor_led_state );
-  if ( monitor_led_state == LOW ) 
-    monitor_led_state = HIGH;
-  else 
-    monitor_led_state = LOW;
+    digitalWrite( MONITOR_LED , monitor_led_state );
+    if ( monitor_led_state == LOW ) 
+        monitor_led_state = HIGH;
+    else 
+        monitor_led_state = LOW;
 
-  timer.setTimeout( ledBlink , Blink_MonitorLed ); // With this trick we can change the blink rate of the led
+    timer.setTimeout( ledBlink , Blink_MonitorLed ); // With this trick we can change the blink rate of the led
 }
 
+// Used to send the system atributes to the MQTT topic regarding the device attributes.
 void IOT_SendAttributes() {
-  IOT_setAttributes();
+    IOT_setAttributes();
 }
 
+// Prints time.
 void printTime() {
-  timeProvider.logTime();
+    timeProvider.logTime();
 }
 
 /*
@@ -439,6 +453,9 @@ void setup() {
     Log.I("Enabling UDP Log Server...");
     Log.setUdp( true );                  // Log to UDP server when connected to WIFI.
 
+    // Print a boot mark
+    Log.W("------------------------------------------------> Power Meter REBOOT");
+
     // Setup OTA
     OTA_Setup();
 
@@ -453,7 +470,9 @@ void setup() {
     IOT_setAttributes();
 
     // Setup WebServer so that we can have a web page while connecting to the PZEM004T
+    Log.I("Setting up the embedded web server...");
     webServer.setup();
+    Log.I("Web server available at port 80.");
 
     delay(100);
     display_WIFIInfo();                   // To display wifi info on the UDP socket.
@@ -465,7 +484,7 @@ void setup() {
     timer.setInterval( pingMqtt , IOT_SendAttributes );
 
     // Periodically log the time
-    timer.setInterval( 10 * 60 * 1000 , printTime );
+    timer.setInterval( 3 * 60 * 1000 , printTime );
 
     // Setup MDNS
     MDNS.begin( hostname );
@@ -499,10 +518,9 @@ void loop() {
         default:
         break;
     }
+    
+    // Execute the background tasks.
+    back_tasks();
 
-    MQTT_client.loop();           // Handle MQTT
     ArduinoOTA.handle();          // Handle OTA.
-    timer.run();                  // Handle SimpleTimer
 }
-
-
