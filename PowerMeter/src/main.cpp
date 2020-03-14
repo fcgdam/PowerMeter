@@ -5,7 +5,7 @@
 #include <ESP8266mDNS.h>
 #include <Wire.h>
 #include <SoftwareSerial.h>
-#include <PZEM004T.h>
+#include <PZEM004Tv30.h>
 #include <SimpleTimer.h>
 #include <WebServer.hpp>
 #include <LogClient.hpp>
@@ -18,8 +18,9 @@
 // PZEM004T Configuration.
 // Change the pins if using something other than the Wemos D1 mini and D5/D6 for UART communication.
 #define         PZEM_TIMEOUT  3500
-PZEM004T        pzem( D6, D5);  // RX,TX
-IPAddress       ip( 192,168,1,1 );
+PZEM004Tv30     pzem( D6, D5);  // RX,TX
+unsigned int    pzemAddress = 0x42;
+//IPAddress       ip( 192,168,1,1 );
 
 unsigned long   pzemDataOK  = 0;
 unsigned long   pzemDataNOK = 0;
@@ -307,12 +308,13 @@ void PWRMeter_Connect() {
     //uint8_t tries = 0;
     bool    pzemOK = false;
     
-    Log.I("Connecting to PZEM004T...");
+    Log.I("Connecting to PZEM004T V30...");
     appData.setPZEMState(PZEM_CONNECTING);
-    pzem.setReadTimeout( PZEM_TIMEOUT);
+    pzem.resetEnergy();
+    //pzem.setReadTimeout( PZEM_TIMEOUT);
 
     //while ( ((pzemOK=pzem.setAddress(ip)) == false) && ( tries < 10 ) ) {
-    if ( (pzemOK=pzem.setAddress(ip)) == false)  {
+    if ( ( pzemOK=pzem.setAddress( pzemAddress) ) == false)  {
         Log.E("Failed to connect to PZEM004T...");
         appData.setPZEMState(PZEM_CONNECTFAIL);
         //tries++;
@@ -347,7 +349,7 @@ void PWRMeter_getData() {
 
     // Get the PZEM004T Power Meter data
     do {
-      v = pzem.voltage(ip);
+      v = pzem.voltage();
       tries++;
       
       // Execute the back ground tasks otherwise we may loose conectivity to the MQTT broker.
@@ -360,9 +362,11 @@ void PWRMeter_getData() {
     if ( v == -1 ) Log.E("No valid data obtained from the PowerMeter: V=-1"); 
     else Log.I("PowerMeter Data OK!");
 
-    float i = pzem.current(ip);
-    float p = pzem.power(ip);
-    float e = pzem.energy(ip);
+    float i = pzem.current();
+    float p = pzem.power();
+    float e = pzem.energy();
+    float pf = pzem.pf();
+    float freq = pzem.frequency();
 
     // Turn led off:
     digitalWrite( MONITOR_LED, HIGH); 
@@ -371,7 +375,10 @@ void PWRMeter_getData() {
     String s = "{\"V\":" + String(v) + \
                ",\"I\":" + String(i) + \
                ",\"P\":" + String(p) + \
-               ",\"E\":" + String(e) + "}";
+               ",\"E\":" + String(e) + \
+               ",\"PF\":" + String(pf) + \
+               ",\"FREQ\":" + String(freq) +
+               "}";
 
     Log.I("-> Power Meter data: ");
     Log.I( s );
