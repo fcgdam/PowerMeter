@@ -2,6 +2,10 @@
 
 Contains the firmware for the ESP8266 with the PZEM-004T based power meter as described in https://primalcortex.wordpress.com/2019/07/06/measuring-home-energy-consumption-with-the-pzem004t-and-esp8266/ and https://primalcortex.wordpress.com/2019/07/25/pzem-004t-esp8266-software/ 
 
+Mater branch - Code for version 2.0 of the PZEM004-T device. Tested and in "production".
+v30 branch   - Code for version 3.0 of the PZEM004-T device. Since I don't have this version, it is not tested and know if it really works. 
+
+
 This firmware provides the following functionality:
 
 - Allows to connect to several access points and cycle between them in case of failure
