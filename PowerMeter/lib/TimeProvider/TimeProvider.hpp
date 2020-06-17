@@ -13,10 +13,19 @@ private:
     int           NTPTZ   = 0 ;                // TZ for Lisbon/PT
 
 public:
+    time_t getLocalTime();
     void setNTPServer( String, unsigned long );
     void setTimeZone( int );
     void logTime();
     void setup ();
+    
+    String getFullTime();
+    String getDate();
+    String getTime();
+
+    String getHours();
+    String getMinutes();
+    String getSeconds();
     //void handle();
 };
 

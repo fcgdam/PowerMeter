@@ -1,5 +1,7 @@
+#include <Arduino.h>
 #include <TimeLib.h>
 #include <TimeProvider.hpp>
+#include <Timezone.h>
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <LogClient.hpp>
@@ -12,6 +14,13 @@ String      NTP_TIMESERVER;
 int         NTP_TIMEZONES;
 
 TimeProvider timeProvider;
+
+// Define Time Zones here
+TimeChangeRule PST = {"PST", Last, Sun, Mar, 1, 60};        //Portuguese Summer Time -  "UTC + 1" or GMT + 1
+TimeChangeRule GMT = {"GMT", Last, Sun, Oct, 2, 0};         //Portuguese winter Time -  "UTC + 0" or GMT
+Timezone tz(PST, GMT);
+TimeChangeRule *tcr;  
+
 
 // ----------------------------------------------------------------------------
 // Send the request packet to the NTP server.
@@ -53,7 +62,7 @@ time_t getNtpTime()
     while (millis() - beginWait < 1500) {
         int size = Udp.parsePacket();
         if (size >= NTP_PACKET_SIZE) {
-            Log.I("Receive NTP Response");
+            Log.I("Received NTP Response");
             Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
             unsigned long secsSince1900;
             // convert four bytes starting at location 40 to a long integer
@@ -66,6 +75,17 @@ time_t getNtpTime()
     }
     Log.E("No NTP Response :-(");
     return 0; // return 0 if unable to get the time
+}
+
+int  getHour() {
+    time_t gt,lt;
+    struct tm *slt;
+
+    gt = now();
+    lt = tz.toLocal( gt );
+
+    slt = localtime( &lt );
+    return slt->tm_hour;
 }
 
 void TimeProvider::setNTPServer(String server , unsigned long syncinterval ) {
@@ -91,8 +111,108 @@ void TimeProvider::setup() {
     }
 }
 
-void TimeProvider::logTime() {
+String TimeProvider::getFullTime() {
     const char * Days [] ={"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"};
-    String datetime = String(Days[weekday()-1]) + ", " + day() +"/"+ month() + "/" + year() + " " + hour() + ":" + minute() + ":" + second();
-    Log.I( datetime);
+    String datetime = String(Days[weekday()-1]) + ", " + day() + "/" + month() + "/" + year() + " " + getHour() + ":";
+
+    int minutos = minute();
+    if ( minutos < 10 )
+        datetime = datetime + "0" + minutos + ":";
+    else
+        datetime = datetime + minutos + ":";
+    
+    int segundos = second();
+    if ( segundos < 10 )
+        datetime = datetime + "0" + segundos;
+    else 
+        datetime = datetime + segundos;
+
+    return datetime;
+}
+
+void TimeProvider::logTime() {
+     String datetime = getFullTime();
+    Log.I( datetime );
+}
+
+
+String TimeProvider::getTime() {
+    String datetime;
+
+    if ( getHour() < 10 ) 
+        datetime = "0" + String( getHour() ) + ":";
+    else
+        datetime = String( getHour() ) + ":";
+
+    int minutos = minute();
+    if ( minutos < 10 )
+        datetime = datetime + "0" + minutos + ":";
+    else
+        datetime = datetime + minutos + ":";
+    
+    int segundos = second();
+    if ( segundos < 10 )
+        datetime = datetime + "0" + segundos;
+    else 
+        datetime = datetime + segundos;
+
+    return datetime;
+}
+
+String TimeProvider::getDate() {
+    String datetime;
+
+    if ( day() < 10 ) 
+        datetime = "0" + String( day() ) + "/";
+    else
+        datetime = String( day() ) + "/";
+
+    if ( month() < 10 ) 
+        datetime = datetime + "0" + month() + "/";
+    else
+        datetime = datetime + String( month() ) + "/";
+
+    datetime = datetime + String(year());
+
+    return datetime;
+}
+
+String TimeProvider::getHours() {
+    String datetime;
+
+    if ( getHour() < 10 ) 
+        datetime = "0" + String( getHour() );
+    else
+        datetime = String( getHour() );
+
+    return datetime;
+}
+
+String TimeProvider::getMinutes() {
+    String datetime;
+
+    if ( minute() < 10 ) 
+        datetime = "0" + String( minute() );
+    else
+        datetime = String( minute() );
+
+    return datetime;
+}
+
+String TimeProvider::getSeconds() {
+    String datetime;
+
+    if ( second() < 10 ) 
+        datetime = "0" + String( second() );
+    else
+        datetime = String( second() );
+
+    return datetime;
+}
+
+
+time_t TimeProvider::getLocalTime() {
+    time_t local_time = tz.toLocal(now(), &tcr);
+
+    return local_time;
 }
